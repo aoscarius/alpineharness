@@ -1,0 +1,7 @@
+# Folders
+.vscode/
+.opencode/
+.omp/
+.pi/
+# Files
+.env

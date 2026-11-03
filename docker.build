@@ -1,0 +1,71 @@
+FROM alpine:3.23
+
+# Accepts the desired harness as a build argument (Default: omp)
+ARG HARNESS=pi
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
+    ENV=/etc/profile
+
+# Single layer for package installation and Python symlinks
+RUN apk add --no-cache \
+    # Base / shell / network
+    ca-certificates curl wget bash bash-completion shadow sudo su-exec \
+    # VCS
+    git git-bash-completion \
+    # Search / editing / inspection
+    ripgrep fd jq yq tree nano vim htop \
+    # glibc compatibility for prebuilt binaries
+    gcompat libgcc libstdc++ \
+    # C / C++ toolchain & build systems
+    build-base gcc g++ make musl-dev linux-headers gdb strace \
+    # Rust
+    rust cargo \
+    # Go
+    go \
+    # Python
+    python3 python3-dev py3-pip \
+    # Node.js
+    nodejs npm \
+    # Link execution paths for standard Python usage
+    && ln -sf python3 /usr/bin/python \
+    && ln -sf pip3 /usr/bin/pip
+
+# Install selected harness package globally via npm. Each harness has different requirements:
+RUN case "${HARNESS}" in \
+        opencode) npm install -g opencode-ai@latest ;; \
+        omp)      curl -fsSL https://omp.sh/install | sh && mv /root/.local/bin/omp /usr/bin/omp || true ;; \
+        pi|*)     npm install -g --ignore-scripts @earendil-works/pi-coding-agent ;; \
+    esac \
+    && chmod +x /usr/bin/omp 2>/dev/null || true \
+    && rm -rf /root/.npm /root/.cache /root/.local /tmp/* /var/cache/apk/* 2>/dev/null || true
+
+# Configure default bash profile
+RUN mkdir -p /etc/profile.d && cat > /etc/profile.d/prompt.sh <<'EOF'
+# Define a function to display the current git branch
+gitbranch() {
+  branch=$(git branch --show-current 2>/dev/null)
+  [ -n "$branch" ] && echo " $branch"
+}
+# Configure a colorful prompt for bash shells
+if [ -n "$BASH_VERSION" ]; then
+  RESET="\[\033[0m\]"
+  ARROW="\[\033[38;5;117m\]➜$RESET"
+  DIR="\[\033[38;5;81m\]\w$RESET"
+  GIT_COLOR="\[\033[38;5;49m\]"
+  PS1="$ARROW $DIR$GIT_COLOR \$(gitbranch)$RESET\n\$ "
+  export PS1
+fi
+# Configure default bash aliases
+alias ls='ls --color=auto'
+alias ll='ls -lah --color=auto'
+alias grep='grep --color=auto'
+EOF
+
+# Permit passwordless sudo execution for members of the wheel group
+RUN echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+# Set up standard working directory
+WORKDIR /workspace
