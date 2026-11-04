@@ -1,8 +1,9 @@
+DISTRO ?= alpine
 HARNESS ?= pi
-IMAGE_NAME = $(HARNESS)alpine:dev
-DOCKERFILE_PATH = docker.build
+IMAGE_NAME = $(HARNESS)$(DISTRO):dev
+DOCKERFILE_PATH = docker.$(DISTRO)
 BIN_DIR = $(HOME)/.local/bin
-SHARE_DIR = $(HOME)/.local/share/alpine
+SHARE_DIR = $(HOME)/.local/share/$(DISTRO)
 WRAPPER_PATH = $(BIN_DIR)/$(HARNESS)
 CONFIG_FILE = docker.env
 
@@ -88,13 +89,23 @@ install: build
 	@echo 'if [ "$$ALLOW_GIT_CONFIG" = "true" ] && [ -f "$$HOME/.gitconfig" ]; then DOCKER_ARGS+=("-v" "$$HOME/.gitconfig:/home/sandbox/.gitconfig:ro"); fi' >> $(WRAPPER_PATH)
 	@echo '' >> $(WRAPPER_PATH)
 
+	@echo '# Determine the appropriate privilege dropping command based on the OS' >> $(WRAPPER_PATH)
+	@echo 'source /etc/os-release' >> $(WRAPPER_PATH)
+	@echo 'if [ "$$ID" = "alpine" ]; then' >> $(WRAPPER_PATH)
+	@echo '    SUCMD="su-exec"' >> $(WRAPPER_PATH)
+	@echo 'else' >> $(WRAPPER_PATH)
+	@echo '    SUCMD="gosu"' >> $(WRAPPER_PATH)
+	@echo 'fi' >> $(WRAPPER_PATH)
+	@echo '' >> $(WRAPPER_PATH)
+
 	@echo '# Entrypoint command: creates user/group dynamically, configures passwordless sudo, and drops privileges' >> $(WRAPPER_PATH)
 	@echo 'ENTRYPOINT_CMD="mkdir -p /home/sandbox /workspace && \' >> $(WRAPPER_PATH)
 	@echo 'grep -q \":x:$$USER_GID:\" /etc/group || echo \"sandbox_group:x:$$USER_GID:\" >> /etc/group && \' >> $(WRAPPER_PATH)
 	@echo 'grep -q \":x:$$USER_UID:\" /etc/passwd || echo \"sandbox:x:$$USER_UID:$$USER_GID:sandbox:/home/sandbox:/bin/bash\" >> /etc/passwd && \' >> $(WRAPPER_PATH)
 	@echo 'if [ -f /etc/sudoers ]; then chmod 0640 /etc/sudoers && sed -i '"'/sandbox ALL/d'"' /etc/sudoers && echo \"sandbox ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers && chmod 0440 /etc/sudoers; fi && \' >> $(WRAPPER_PATH)
 	@echo 'chown -R $$USER_UID:$$USER_GID /home/sandbox /workspace && \' >> $(WRAPPER_PATH)
-	@echo 'exec su-exec $$USER_UID:$$USER_GID env HOME=/home/sandbox USER=sandbox LOGNAME=sandbox HISTFILE=/home/sandbox/.bash_history PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=$$TERM \"\$$@\""' >> $(WRAPPER_PATH)
+	@echo 'exec $$SUCMD $$USER_UID:$$USER_GID env HOME=/home/sandbox USER=sandbox LOGNAME=sandbox HISTFILE=/home/sandbox/.bash_history PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin TERM=$$TERM \"\$$@\""' >> $(WRAPPER_PATH)
+	@echo '' >> $(WRAPPER_PATH)
 
 	@echo '# Determine if the user wants to run a shell or execute a command' >> $(WRAPPER_PATH)
 	@echo 'if [ "$${1:-}" = "--shell" ]; then CMD=(/bin/bash -l); else CMD=("$$HARNESS" "$$@"); fi' >> $(WRAPPER_PATH)

@@ -1,6 +1,6 @@
-FROM alpine:3.23
+FROM alpine:3.24
 
-# Accepts the desired harness as a build argument (Default: omp)
+# Accepts the desired harness as a build argument (Default: pi)
 ARG HARNESS=pi
 
 ENV LANG=C.UTF-8 \
