@@ -12,7 +12,7 @@ ENV LANG=C.UTF-8 \
 # Single layer for package installation and Python symlinks
 RUN apk add --no-cache \
     # Base / shell / network
-    ca-certificates curl wget bash bash-completion shadow sudo su-exec \
+    ca-certificates curl wget bash bash-completion shadow sudo su-exec gnupg \
     # VCS
     git git-bash-completion \
     # Search / editing / inspection
