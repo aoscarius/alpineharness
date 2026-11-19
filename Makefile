@@ -1,5 +1,6 @@
 DISTRO ?= alpine
 HARNESS ?= pi
+UPDATE ?= no
 IMAGE_NAME = $(HARNESS)$(DISTRO):dev
 DOCKERFILE_PATH = docker.$(DISTRO)
 BIN_DIR = $(HOME)/.local/bin
@@ -51,6 +52,7 @@ install: build
 	@echo '' >> $(WRAPPER_PATH)
 	
 	@echo 'if [ ! -d "$$CURRENT_WORKSPACE/.$$HARNESS" ]; then' >> $(WRAPPER_PATH)
+	@echo '    mkdir -p "$$CURRENT_WORKSPACE/.home/.$$HARNESS"' >> $(WRAPPER_PATH)
 	@echo '    mkdir -p "$$CURRENT_WORKSPACE/.$$HARNESS"' >> $(WRAPPER_PATH)
 	@echo '    cp -f "$(SHARE_DIR)/.env" "$$CURRENT_WORKSPACE/.env"' >> $(WRAPPER_PATH)
 	@echo '    STRUCTURE_CREATED=true' >> $(WRAPPER_PATH)
@@ -60,6 +62,9 @@ install: build
 	@echo 'if [ "$$STRUCTURE_CREATED" = "true" ] && { [ -d "$$CURRENT_WORKSPACE/.git" ] || [ -f "$$CURRENT_WORKSPACE/.git" ]; }; then' >> $(WRAPPER_PATH)
 	@echo '    GITIGNORE="$$CURRENT_WORKSPACE/.gitignore"' >> $(WRAPPER_PATH)
 	@echo '    touch "$$GITIGNORE"' >> $(WRAPPER_PATH)
+	@echo '    if ! grep -q "^\.home/\$$" "$$GITIGNORE"; then' >> $(WRAPPER_PATH)
+	@echo '        echo -e "\n.home/" >> "$$GITIGNORE"' >> $(WRAPPER_PATH)
+	@echo '    fi' >> $(WRAPPER_PATH)
 	@echo '    if ! grep -q "^\.$$HARNESS/\$$" "$$GITIGNORE"; then' >> $(WRAPPER_PATH)
 	@echo '        echo -e "\n.$$HARNESS/" >> "$$GITIGNORE"' >> $(WRAPPER_PATH)
 	@echo '    fi' >> $(WRAPPER_PATH)
@@ -82,7 +87,7 @@ install: build
 	@echo 'DOCKER_ARGS+=("--name" "$$CONTAINER_NAME")' >> $(WRAPPER_PATH)
 	@echo 'DOCKER_ARGS+=("--env-file=$$CURRENT_WORKSPACE/.env")' >> $(WRAPPER_PATH)
 	@echo 'DOCKER_ARGS+=("-w" "/workspace")' >> $(WRAPPER_PATH)
-	@echo 'DOCKER_ARGS+=("-v" "$$CURRENT_WORKSPACE/.$$HARNESS:/home/sandbox/.$$HARNESS")' >> $(WRAPPER_PATH)
+	@echo 'DOCKER_ARGS+=("-v" "$$CURRENT_WORKSPACE/.home/.$$HARNESS:/home/sandbox/.$$HARNESS")' >> $(WRAPPER_PATH)
 	@echo 'DOCKER_ARGS+=("-v" "$$CURRENT_WORKSPACE:/workspace")' >> $(WRAPPER_PATH)
 	@echo 'DOCKER_ARGS+=("--network=$$DOCKER_NETWORK")' >> $(WRAPPER_PATH)
 	@echo 'DOCKER_ARGS+=("--memory=$$DOCKER_MAX_MEMORY" "--cpus=$$DOCKER_MAX_CPUS")' >> $(WRAPPER_PATH)
@@ -124,7 +129,11 @@ endif
 ifeq ($(filter $(HARNESS),$(VALID_HARNESS)),)
 	$(error Error: HARNESS must be one of [$(VALID_HARNESS)]. Received: '$(HARNESS)')
 endif
+ifeq ($(UPDATE),yes)
+	docker build --no-cache -f $(DOCKERFILE_PATH) --build-arg HARNESS=$(HARNESS) -t $(IMAGE_NAME) .
+else
 	docker build -f $(DOCKERFILE_PATH) --build-arg HARNESS=$(HARNESS) -t $(IMAGE_NAME) .
+endif
 
 uninstall:
 	rm -f $(WRAPPER_PATH)

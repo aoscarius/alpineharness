@@ -31,7 +31,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -sf /usr/bin/fdfind /usr/bin/fd \
     # Link execution paths for standard Python usage
     && ln -sf /usr/bin/python3 /usr/bin/python \
-    && ln -sf /usr/bin/pip3 /usr/bin/pip
+    && ln -sf /usr/bin/pip3 /usr/bin/pip \
+    # Bun
+    && curl -fsSL https://bun.com/install | BUN_INSTALL=/usr/local bash
 
 # Install Node.js 24 system-wide using NodeSource
 RUN NODE_MAJOR=24 && curl -fsSL https://deb.nodesource.com/setup_$NODE_MAJOR.x | bash - \

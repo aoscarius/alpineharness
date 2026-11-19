@@ -31,7 +31,9 @@ RUN apk add --no-cache \
     nodejs npm \
     # Link execution paths for standard Python usage
     && ln -sf python3 /usr/bin/python \
-    && ln -sf pip3 /usr/bin/pip
+    && ln -sf pip3 /usr/bin/pip \
+    # Bun
+    && curl -fsSL https://bun.com/install | BUN_INSTALL=/usr/local bash
 
 # Install selected harness package globally via npm. Each harness has different requirements:
 RUN case "${HARNESS}" in \
